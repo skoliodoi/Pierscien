@@ -1,0 +1,66 @@
+version: '3.9'
+services:
+  pierscien_db:
+    image: mysql:8.0
+    container_name: pierscien_db
+    command:
+      [
+        'mysqld',
+        '--character-set-server=utf8mb4',
+        '--collation-server=utf8mb4_unicode_ci'
+      ]
+    ports:
+      - 3367:3367
+    volumes:
+      - ./backend/database/tk_db:/var/lib/mysql
+      - ./backend/database/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+
+    environment:
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - MYSQL_TCP_PORT=3367
+      - LANG=C.UTF-8
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      timeout: 5s
+      retries: 10
+
+  pierscien_server:
+    build: ./backend
+    ports:
+      - "7777:7777"
+    volumes:
+      - ./backend/web:/app/web
+    entrypoint:
+      [
+        "sanic",
+        "server.app",
+        "--dev",
+        "--port=7777",
+        "--host=0.0.0.0"
+      ]
+    # env_file:
+    #   - ./.env
+    #inititate the database for development purpose
+    # depends_on:
+    #   mysqldb:
+    #     condition: service_healthy
+    container_name: pierscien_server
+  pierscien_ui:
+    build: ./frontend
+    ports:
+      - "8081:8081"
+    container_name: pierscien_ui
+    volumes:
+      - ./frontend/src:/app/frontend/src
+      - /app/frontend/node_modules
+    stdin_open: true
+    tty: true
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    command: [ "npm", "run", "dev"]
+networks:
+  default:
+    driver: bridge
